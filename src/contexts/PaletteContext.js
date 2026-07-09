@@ -1,5 +1,15 @@
-import { useContext, createContext, useState, useCallback, useEffect } from "react";
+import {
+  useContext,
+  createContext,
+  useState,
+  useCallback,
+  useEffect,
+  useMemo,
+} from "react";
 import { useDifficulty } from "./DifficultyContext";
+
+// sentinel selection id for the eraser tool
+export const ERASER = -1;
 
 // colorset data
 const colorSets = [
@@ -50,7 +60,7 @@ const colorSets = [
     "#333333", // dark grey
     "#1A1A1A", // charcoal grey
     "#000000", // dark black
-  ]
+  ],
 ];
 
 // information that context holds
@@ -70,34 +80,28 @@ export function PaletteProvider({ children }) {
   const { colorDifficulty } = useDifficulty();
 
   const nextSet = useCallback(() => {
-    const newId = (paletteId + 1) % colorSets.length;
-    const newPaletteLength = colorSets[newId].length;
-    if (selectedId >= newPaletteLength) {
-      setSelectedId(newPaletteLength - 1);
-    }
-    setPaletteId(newId);
-  }, [paletteId, selectedId]);
+    setPaletteId((id) => (id + 1) % colorSets.length);
+  }, []);
 
   const prevSet = useCallback(() => {
-    const newId = (paletteId - 1 + colorSets.length) % colorSets.length;
-    const newPaletteLength = colorSets[newId].length;
-    if (selectedId >= newPaletteLength) {
-      setSelectedId(newPaletteLength - 1);
-    }
-    setPaletteId(newId);
-  }, [paletteId, selectedId]);
+    setPaletteId((id) => (id - 1 + colorSets.length) % colorSets.length);
+  }, []);
 
-  const palette = colorSets[paletteId].slice(0, colorDifficulty);
+  const palette = useMemo(
+    () => colorSets[paletteId].slice(0, colorDifficulty),
+    [paletteId, colorDifficulty]
+  );
 
   const selectColor = useCallback((colorId) => {
     setSelectedId(colorId);
   }, []);
 
+  // if the palette shrinks below the current selection, clamp it
   useEffect(() => {
-    if (selectedId >= colorDifficulty) {
-      setSelectedId(palette.length - 1);
+    if (selectedId !== ERASER && selectedId >= colorDifficulty) {
+      setSelectedId(colorDifficulty - 1);
     }
-  }, [colorDifficulty, selectedId, palette]);
+  }, [colorDifficulty, selectedId]);
 
   return (
     <PaletteContext.Provider
@@ -108,10 +112,6 @@ export function PaletteProvider({ children }) {
   );
 }
 
-// catch if context not defined
 export function usePalette() {
-  if (!PaletteContext) {
-    throw new Error("PaletteContext must be defined");
-  }
   return useContext(PaletteContext);
 }

@@ -1,238 +1,194 @@
-import * as d3 from "d3";
-import {
-  useCallback,
-  useEffect,
-  useState,
-  useMemo,
-  useRef,
-  useLayoutEffect,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDifficulty } from "../contexts/DifficultyContext";
+import { usePalette, ERASER } from "../contexts/PaletteContext";
+import { createBoard, countUnfilled, isLegalMove } from "../game/board";
+import {
+  currentStreak,
+  dailySeed,
+  isDailyComplete,
+  recordDailySolve,
+  todayKey,
+} from "../game/daily";
+import ArchivePicker from "./ArchivePicker";
 import Voronoi from "./Voronoi";
 import VictoryMessage from "./VictoryMessage";
-import { usePalette } from "../contexts/PaletteContext";
-
-// custom hook for window dimensions
-const useDimensions = (targetRef) => {
- 
-  // eslint-disable-next-line
-  const getDimensions = () => {7
-    return {
-      width: targetRef.current ? targetRef.current.offsetWidth: Math.ceil(0.7*window.innerWidth),
-      height: targetRef.current ? targetRef.current.offsetHeight: Math.ceil(0.50*window.innerHeight)
-    };
-  };
-
-  const [dimensions, setDimensions] = useState(getDimensions);
-
-  const handleResize = useCallback(() => {
-    setDimensions(getDimensions());
-  }, [getDimensions]);
-
-  useEffect(() => {
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, [handleResize]);
-
-  useLayoutEffect(() => {
-    handleResize();
-    // eslint-disable-next-line
-  }, []);
-
-  return dimensions;
-};
 
 export default function ColoringGrid() {
-  const { numPoints, colorDifficulty } = useDifficulty();
+  const { mapDifficulty, numPoints, colorDifficulty } = useDifficulty();
   const { palette, selectedId } = usePalette();
-  const [numNull, setNumNull] = useState(numPoints);
+
+  // "today" is state, refreshed on focus and on a timer, so the app rolls
+  // over correctly at midnight instead of trusting the mount-time date
+  const [todayK, setTodayK] = useState(() => todayKey());
+  useEffect(() => {
+    const refresh = () => setTodayK(todayKey());
+    const intervalId = setInterval(refresh, 60000);
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
+  }, []);
+
+  const [selectedDate, setSelectedDate] = useState(todayK);
+  const seed = dailySeed(selectedDate, mapDifficulty);
+  const isToday = selectedDate === todayK;
+
+  // board geometry is fully determined by (seed, numPoints)
+  const { voronoi, neighbors } = useMemo(
+    () => createBoard(seed, numPoints),
+    [seed, numPoints]
+  );
+
+  // colors[i] is the palette index painted on cell i, or null if blank —
+  // the only mutable game state
+  const [colors, setColors] = useState(() => Array(numPoints).fill(null));
   const [victoryDismissed, setVictoryDismissed] = useState(false);
-  const targetRef = useRef(null);
-  const dimensions = useDimensions(targetRef);
+  const [invalidId, setInvalidId] = useState(null);
+  const [, setCompletionsVersion] = useState(0);
+  const invalidTimer = useRef(null);
 
-  // sidelength for game board
-  const domainMaxWidth = dimensions.width;
-  const domainMaxHeight = dimensions.height;
-
-  // random number generator
-  const randomInDomain = useCallback((max) => {
-    return Math.floor(Math.random() * (max + 1));
-  }, []);
-
-  // add unique new point to data
-  const appendUniquePoint = useCallback(
-    (data) => {
-      let appended = false;
-      while (!appended) {
-        let nextPoint = {
-          colorId: null,
-          x: randomInDomain(domainMaxWidth),
-          y: randomInDomain(domainMaxHeight),
-          neighbors: [],
-        };
-        if (!data.includes(nextPoint)) {
-          appended = true;
-          return [...data, nextPoint];
-        }
-      }
-    },
-    [randomInDomain, domainMaxWidth, domainMaxHeight]
-  );
-
-  // iterate appends based on difficulty
-  const generateMapPoints = () => {
-    let data = [];
-    for (let i = 0; i < numPoints; i++) {
-      data = appendUniquePoint(data);
-    }
-    return data;
-  };
-
-  // voronoi cell starting points
-  const [mapPoints, setMapPoints] = useState(generateMapPoints());
-
-  // dimensions of game board
-  const xScale = d3
-    .scaleLinear()
-    .domain([0, domainMaxWidth])
-    .range([0, domainMaxWidth]);
-  const yScale = d3
-    .scaleLinear()
-    .domain([0, domainMaxHeight])
-    .range([0, domainMaxHeight]);
-
-  // delaunay triangulation paths +
-  // voronoi cell borders
-  const voronoi = useMemo(() => {
-    const formattedData = mapPoints.map((d) => [xScale(d.x), yScale(d.y)]);
-    const delaunay = d3.Delaunay.from(formattedData);
-    return delaunay.voronoi([0, 0, domainMaxWidth, domainMaxHeight]);
-  }, [mapPoints, xScale, yScale, domainMaxWidth, domainMaxHeight]);
-
-  // voronoi data with neighbors
-  const [voronoiData, setVoronoiData] = useState(
-    mapPoints.map((mapPoint, i) => {
-      return { ...mapPoints[i], neighbors: [...voronoi.neighbors(i)] };
-    })
-  );
-
-  // get num shapes filled
-  const getColorIds = (data) => {
-    let colors = [];
-    for (const item of Object.values(data)) {
-      colors = [...colors, item.colorId];
-    }
-    return colors;
-  };
-
-  // fill in shape with color
-  const changeColorId = useCallback(
-    (pointId, colorId) => {
-      console.log(`user sent ${palette[colorId]} to point ${pointId}`);
-      console.log(
-        `point ${pointId}'s neighbors are ${voronoiData[pointId].neighbors}`
-      );
-      if (
-        voronoiData[pointId].neighbors.reduce((acc, currentValue) => {
-          return (
-            acc && Boolean(voronoiData[currentValue].colorId !== selectedId)
-          );
-        }, true)
-      ) {
-        const newVoronoiData = [...voronoiData];
-        newVoronoiData[pointId] = { ...newVoronoiData[pointId], colorId };
-        setVoronoiData(newVoronoiData);
-        const colors = getColorIds(newVoronoiData);
-        setNumNull(colors.reduce((acc, i) => (i === null ? ++acc : acc), 0));
-      }
-    },
-    // eslint-disable-next-line
-    [voronoiData, selectedId, setVoronoiData]
-  );
-
-  // remove color from shape
-  const removeColorId = useCallback(
-    (pointId) => {
-      const newVoronoiData = [...voronoiData];
-      newVoronoiData[pointId] = { ...newVoronoiData[pointId], colorId: null };
-      setVoronoiData(newVoronoiData);
-      const colors = getColorIds(newVoronoiData);
-      setNumNull(colors.reduce((acc, i) => (i === null ? ++acc : acc), 0));
-    },
-    [voronoiData, setVoronoiData]
-  );
-
-  // dismiss victory popup
-  const dismissVictory = useCallback(() => {
-    setVictoryDismissed(true);
-  }, []);
-
-  // clear all colors
-  const clearColors = (data) => {
-    data.forEach((i) => {
-      i.colorId = null;
-    });
-  };
-
-  useEffect(() => {
-    setMapPoints(generateMapPoints());
+  // reset during render when the board changes, so no frame ever shows (or
+  // records) old colors against new geometry
+  const boardKey = `${seed}:${numPoints}`;
+  const [prevBoardKey, setPrevBoardKey] = useState(boardKey);
+  if (boardKey !== prevBoardKey) {
+    setPrevBoardKey(boardKey);
+    setColors(Array(numPoints).fill(null));
     setVictoryDismissed(false);
-    setNumNull(numPoints);
-    // eslint-disable-next-line
-  }, [numPoints, colorDifficulty]);
+    setInvalidId(null);
+  }
 
+  // shrinking the palette clears only the cells whose color no longer exists
   useEffect(() => {
-    setVoronoiData(
-      mapPoints.map((mapPoint, i) => {
-        return { ...mapPoints[i], neighbors: [...voronoi.neighbors(i)] };
-      })
+    setColors((prev) =>
+      prev.map((c) => (c !== null && c >= colorDifficulty ? null : c))
     );
-    // eslint-disable-next-line
-  }, [mapPoints]);
+  }, [colorDifficulty]);
+
+  const numNull = countUnfilled(colors);
+  const solved = colors.length === numPoints && numNull === 0;
+
+  const flashInvalid = useCallback((cellId) => {
+    clearTimeout(invalidTimer.current);
+    setInvalidId(cellId);
+    invalidTimer.current = setTimeout(() => setInvalidId(null), 450);
+  }, []);
+
+  useEffect(() => () => clearTimeout(invalidTimer.current), []);
+
+  const eraseCell = useCallback((cellId) => {
+    setColors((prev) => {
+      const next = [...prev];
+      next[cellId] = null;
+      return next;
+    });
+  }, []);
+
+  const paintCell = useCallback(
+    (cellId) => {
+      if (selectedId === ERASER) {
+        eraseCell(cellId);
+        return;
+      }
+      if (!isLegalMove(colors, neighbors, cellId, selectedId)) {
+        flashInvalid(cellId);
+        return;
+      }
+      const next = [...colors];
+      next[cellId] = selectedId;
+      setColors(next);
+      // record at the moment of the winning move, against the board actually
+      // being played — never from an effect that can see a stale board
+      if (countUnfilled(next) === 0) {
+        recordDailySolve(selectedDate, mapDifficulty, colorDifficulty);
+        setCompletionsVersion((n) => n + 1);
+      }
+    },
+    [
+      colors,
+      neighbors,
+      selectedId,
+      selectedDate,
+      mapDifficulty,
+      colorDifficulty,
+      eraseCell,
+      flashInvalid,
+    ]
+  );
+
+  // archive picker: any past date is a valid puzzle, the future never is
+  const pickDate = (dateKey) => {
+    const today = todayKey();
+    setSelectedDate(dateKey > today ? today : dateKey);
+  };
+
+  const dailyDone =
+    solved || isDailyComplete(selectedDate, mapDifficulty, colorDifficulty);
+  const streak = currentStreak(mapDifficulty, colorDifficulty);
 
   return (
-    <div className="color-grid" ref={targetRef}>
-      {victoryDismissed || numNull > 0 ? (
+    <div className="color-grid">
+      <div
+        className="status"
+        style={{
+          "--c0": palette[0],
+          "--c1": palette[1],
+          "--c2": palette[2],
+          "--c3": palette[3],
+        }}
+      >
+        {[
+          ...(isToday
+            ? `Daily Puzzle · ${selectedDate}${dailyDone ? " ✓" : ""}${
+                streak > 0 ? ` · 🔥 ${streak}` : ""
+              }`
+            : `Archive · ${selectedDate}${dailyDone ? " ✓" : ""} · no streak`),
+        ].map((char, i) => (
+          <span key={i} style={{ animationDelay: `${-i * 0.15}s` }}>
+            {char}
+          </span>
+        ))}
+      </div>
+      {victoryDismissed || !solved ? (
         <>
-            <Voronoi
-              width={domainMaxWidth}
-              height={domainMaxHeight}
-              data={voronoiData}
-              voronoi={voronoi}
-              callbackPaint={changeColorId}
-              callbackErase={removeColorId}
-            />
+          <Voronoi
+            cellCount={numPoints}
+            voronoi={voronoi}
+            colors={colors}
+            palette={palette}
+            invalidId={invalidId}
+            onPaint={paintCell}
+            onErase={eraseCell}
+          />
           <div className="score">
             {numNull > 0 ? `${numNull} to go!` : "Great Job!"}
           </div>
         </>
       ) : (
         <VictoryMessage
-          callback={dismissVictory}
-          width={domainMaxWidth}
-          height={domainMaxHeight}
+          onDismiss={() => setVictoryDismissed(true)}
+          dateKey={selectedDate}
+          mapDifficulty={mapDifficulty}
+          colorDifficulty={colorDifficulty}
+          streak={isToday ? streak : 0}
         />
       )}
       <div className="button-grid">
         <button
           onClick={() => {
-            clearColors(voronoiData);
+            setColors(Array(numPoints).fill(null));
             setVictoryDismissed(false);
-            setNumNull(numPoints);
           }}
         >
           Clear
         </button>
-        <button
-          onClick={() => {
-            setMapPoints(generateMapPoints());
-            setVictoryDismissed(false);
-            setNumNull(numPoints);
-          }}
-        >
-          New
+        <button onClick={() => setSelectedDate(todayKey())} disabled={isToday}>
+          Today
         </button>
-        {/* <button>Export</button>*/}
+        <ArchivePicker selectedDate={selectedDate} onPick={pickDate} />
       </div>
     </div>
   );

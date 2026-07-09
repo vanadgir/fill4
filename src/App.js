@@ -2,7 +2,7 @@ import { useDifficulty } from "./contexts/DifficultyContext";
 import { PaletteProvider } from "./contexts/PaletteContext";
 import GameBoard from "./components/GameBoard";
 import ColorMenu from "./components/ColorMenu";
-import DateTime from "./components/DateTime";
+import GameRules from "./components/GameRules";
 import "./App.css";
 import { useState } from "react";
 
@@ -51,7 +51,9 @@ export default function App() {
 
   return (
     <div className="main">
-      <div onClick={toggleTitle} className="title-bar">{title}</div>
+      <div onClick={toggleTitle} className="title-bar">
+        {title}
+      </div>
       <PaletteProvider>
         <div className="game-bar">
           <div className={`left ${collapseTitle ? "hide" : ""}`}>
@@ -64,7 +66,7 @@ export default function App() {
         </div>
         <GameBoard />
       </PaletteProvider>
-      <DateTime />
+      <GameRules />
     </div>
   );
 }

@@ -1,12 +1,9 @@
-import React, { Component } from "react";
-
-class GameRules extends Component {
-  render() {
-    return (
-      <div className="rules">
-        You must color the shapes in such a way that every shape is a different
-        color than its neighbors.
-      </div>
-    );
-  }
+export default function GameRules() {
+  return (
+    <div className="rules">
+      <p>Color every cell so that no two touching cells share a color.</p>
+      <p>Left Click to Paint.</p>
+      <p>Right Click to Erase.</p>
+    </div>
+  );
 }

@@ -1,6 +1,25 @@
-* {
+:root {
+  --ink: black;
+  --paper: white;
+  --danger: #e74c3c;
+}
+
+body {
+  margin: 0;
   font-family: Cambria, Cochin, Georgia, Times, "Times New Roman", serif;
   -webkit-tap-highlight-color: transparent;
+}
+
+button,
+select,
+input {
+  font-family: inherit;
+}
+
+button {
+  cursor: pointer;
+  min-width: 48px;
+  user-select: none;
 }
 
 .main {
@@ -9,35 +28,30 @@
   align-items: center;
 }
 
-body {
-  margin: 0%;
+/* -- title -- */
+
+.title-bar {
+  width: 100%;
 }
 
 .title {
-  margin-top: 0%;
+  margin: 0;
   display: flex;
   justify-content: center;
   border-style: solid;
   cursor: pointer;
   user-select: none;
-  margin-bottom: 0%;
   transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
   overflow: hidden;
   max-height: 100px;
   opacity: 1;
 }
 
-.title-bar {
-  width: 100vw;
-}
-
 .title.collapsed {
-  margin-left: 0%;
-  margin-right: 0%;
   max-height: 8px;
   opacity: 0.4;
   padding: 0;
-  background-color: black;
+  background-color: var(--ink);
 }
 
 .title span:nth-child(1) {
@@ -57,29 +71,23 @@ body {
 }
 
 .title span:nth-child(5) {
-  color: white;
-  background-color: black;
+  color: var(--paper);
+  background-color: var(--ink);
 }
+
+/* -- top bar: difficulty selectors + palette -- */
 
 .game-bar {
   display: flex;
-  width: 100vw;
+  width: 100%;
   align-items: center;
   justify-content: space-evenly;
   user-select: none;
   margin-bottom: 8px;
-
-  .color-menu {
-    display: flex;
-    align-items: center;
-
-    .palette {
-      display: flex;
-    }
-  }
 }
 
-.left {
+.left,
+.right {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -89,26 +97,22 @@ body {
   content: "Game";
 }
 
-.left.hide {
-  display: none;
-}
-
-.right {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
 .right::before {
   content: "Colors";
 }
 
+.left.hide,
 .right.hide {
   display: none;
 }
 
-button {
-  cursor: pointer;
+.color-menu {
+  display: flex;
+  align-items: center;
+}
+
+.palette {
+  display: flex;
 }
 
 .block {
@@ -116,106 +120,261 @@ button {
   height: 20px;
   width: 20px;
   margin: 2px;
-  border-style: dashed;
-  opacity: 80%;
+  border: 3px dashed var(--ink);
+  opacity: 0.8;
 }
 
 .block:active {
-  border-color: white;
+  border-color: var(--danger);
 }
 
-.selected {
+.block.selected {
   border-style: solid;
-  opacity: 100%;
+  opacity: 1;
 }
+
+.block.eraser {
+  background: linear-gradient(
+    to top right,
+    var(--paper) 44%,
+    var(--danger) 44%,
+    var(--danger) 56%,
+    var(--paper) 56%
+  );
+}
+
+/* -- game board -- */
 
 .game-board {
   width: 100%;
-  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  cursor: pointer;
 }
 
 .color-grid {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  align-items: center;
+}
+
+.status {
+  font-size: 22px;
+  font-weight: bold;
+  margin-bottom: 6px;
+  user-select: none;
+  white-space: pre;
+}
+
+/* each character cycles through the active palette's first four colors;
+   negative animation delays stagger them into a wave */
+.status span {
+  animation: palette-cycle 8s linear infinite;
+}
+
+@keyframes palette-cycle {
+  0%,
+  100% {
+    color: var(--c0, var(--ink));
+  }
+  25% {
+    color: var(--c1, var(--ink));
+  }
+  50% {
+    color: var(--c2, var(--ink));
+  }
+  75% {
+    color: var(--c3, var(--ink));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status span {
+    animation: none;
+    color: var(--c0, var(--ink));
+  }
+}
+
+/* board keeps the logical 1000x700 aspect ratio and scales to fit;
+   in portrait the same board renders rotated 90°, so the container
+   flips to 700x1000 and fills the vertical space */
+.voronoi,
+.victory {
+  width: min(92vw, 900px, calc(62vh * (1000 / 700)));
+  aspect-ratio: 1000 / 700;
+  border: 3px solid var(--ink);
+  box-sizing: border-box;
+}
+
+@media (orientation: portrait) {
+  .voronoi,
+  .victory {
+    width: min(94vw, calc((100vh - 290px) * (700 / 1000)));
+    aspect-ratio: 700 / 1000;
+  }
 }
 
 .voronoi {
-    max-width: 90vw;
-  display: flex;
-  justify-content: center;
-  border-style: solid;
-  border-color: black;
+  cursor: pointer;
+}
+
+.voronoi svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+@keyframes invalid-flash {
+  0%,
+  100% {
+    stroke: var(--ink);
+  }
+  50% {
+    stroke: var(--danger);
+    stroke-width: 5px;
+  }
+}
+
+.cell.invalid {
+  animation: invalid-flash 0.45s ease;
 }
 
 .score {
   border-style: groove;
   font-weight: bold;
   font-size: 32px;
-  margin: 0;
-  padding: 0;
+  margin: 8px 0 0;
+  padding: 0 24px;
   text-align: center;
-  margin: 1%;
-  margin-left: 25%;
-  margin-right: 25%;
   user-select: none;
+}
+
+/* -- victory -- */
+
+.victory {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .dismiss {
   position: absolute;
-  width: 5%;
-  height: 5%;
-  left: 95%;
-  background-color: red;
-  color: white;
+  top: 0;
+  right: 0;
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  background-color: var(--danger);
+  color: var(--paper);
   text-align: center;
-  align-items: center;
-  font-size: 24px;
-}
-
-.victory{
-  display: flex;
-  justify-content: center;
+  font-size: 20px;
+  cursor: pointer;
+  user-select: none;
 }
 
 .winstar {
   max-width: 70%;
+  max-height: 70%;
   cursor: default;
-  height: auto;
 }
+
+.share {
+  margin-top: 8px;
+}
+
+/* -- footer -- */
 
 .button-grid {
   display: flex;
-  width: 100%;
-  justify-content: space-evenly;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
 }
 
-button {
-  width: 48px;
+/* -- archive calendar -- */
+
+.archive-picker {
+  position: relative;
+}
+
+.picker-toggle {
+  min-width: 130px;
+}
+
+.calendar {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--paper);
+  border: 2px solid var(--ink);
+  padding: 8px;
+  z-index: 10;
   user-select: none;
 }
 
-.date-time {
-  width: 100vw;
-  font-size: 18px;
-  color: white;
-  background-color: black;
+.cal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.cal-header button {
+  min-width: 32px;
+}
+
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 32px);
+  gap: 2px;
+}
+
+.cal-weekday {
+  text-align: center;
+  font-size: 12px;
+  color: #666666;
+}
+
+.cal-day {
+  min-width: 0;
+  width: 32px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #999999;
+  background-color: var(--paper);
+}
+
+.cal-day.future {
+  color: #bbbbbb;
+  background-color: #f2f2f2;
+  border-color: #dddddd;
+  cursor: default;
+}
+
+.cal-day.selected {
+  border: 2px solid var(--ink);
+  font-weight: bold;
+}
+
+.rules {
   display: flex;
   flex-direction: column;
-  margin-top: 1.7%;
-  align-self: flex-end;
+  align-items: center;
+  max-width: 600px;
+  padding: 8px 16px;
+  font-size: 14px;
+  text-align: center;
+  color: #444444;
+  user-select: none;
+}
 
-  .dt-top {
-    display: flex;
-    justify-content: space-evenly;
-  }
-
-  .dt-bottom {
-    display: flex;
-    justify-content: space-evenly;
-  }
+.rules p {
+  margin: 2px 0;
 }
