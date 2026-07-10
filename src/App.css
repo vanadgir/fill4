@@ -242,7 +242,9 @@ button {
   );
   aspect-ratio: 1000 / 700;
   border: 3px solid var(--ink);
-  box-sizing: border-box;
+  /* content-box so the aspect-ratio governs the SVG's box exactly and it
+     can't letterbox itself inside the border (that caused a thin gap) */
+  box-sizing: content-box;
 }
 
 @media (orientation: portrait) {
@@ -317,6 +319,90 @@ button {
 
 .counter.hidden {
   opacity: 0;
+}
+
+/* -- fullscreen mode: board fills the viewport, palette in a top drawer -- */
+
+.color-grid.fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  gap: 0;
+  padding: 0;
+  justify-content: center;
+  background-color: var(--paper);
+}
+
+.color-grid.fullscreen > .status,
+.color-grid.fullscreen > .streaks,
+.color-grid.fullscreen > .button-grid,
+.color-grid.fullscreen > .date-nav {
+  display: none;
+}
+
+.color-grid.fullscreen .voronoi {
+  width: min(98vw, calc(98dvh * (1000 / 700)));
+}
+
+@media (orientation: portrait) {
+  .color-grid.fullscreen .voronoi {
+    width: min(98vw, calc(98dvh * (700 / 1000)));
+  }
+}
+
+.fs-enter {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.fs-exit {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top));
+  right: calc(8px + env(safe-area-inset-right));
+  z-index: 120;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  font-size: 20px;
+  background-color: var(--paper);
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+}
+
+.fs-drawer {
+  position: fixed;
+  top: env(safe-area-inset-top);
+  left: 50%;
+  transform: translate(-50%, -100%);
+  transition: transform 0.3s ease;
+  z-index: 110;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  max-width: 96vw;
+  background-color: var(--paper);
+  border: 2px solid var(--ink);
+  border-top: none;
+}
+
+.fs-drawer.open {
+  transform: translate(-50%, 0);
+}
+
+.fs-drawer-tab {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 14px;
+  font-size: 14px;
+  font-weight: bold;
+  background-color: var(--paper);
+  border: 2px solid var(--ink);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
 }
 
 /* -- victory -- */

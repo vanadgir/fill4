@@ -12,6 +12,7 @@ import {
 } from "../game/daily";
 import { loadSavedBoard, removeSavedBoard, saveBoard } from "../game/storage";
 import ArchivePicker from "./ArchivePicker";
+import ColorMenu from "./ColorMenu";
 import ShareButton from "./ShareButton";
 import Voronoi from "./Voronoi";
 import VictoryMessage from "./VictoryMessage";
@@ -69,8 +70,20 @@ export default function ColoringGrid() {
   const [invalidId, setInvalidId] = useState(null);
   const [, setCompletionsVersion] = useState(0);
   const [counterVisible, setCounterVisible] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const invalidTimer = useRef(null);
   const counterTimer = useRef(null);
+
+  // Escape leaves fullscreen
+  useEffect(() => {
+    if (!fullscreen) return undefined;
+    const onKey = (e) => {
+      if (e.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
 
   // reset during render when the board changes, so no frame ever shows (or
   // records) old colors against new geometry
@@ -175,7 +188,28 @@ export default function ColoringGrid() {
   const streak = currentStreak(mapDifficulty, colorDifficulty);
 
   return (
-    <div className="color-grid">
+    <div className={`color-grid ${fullscreen ? "fullscreen" : ""}`}>
+      {fullscreen && (
+        <>
+          <button
+            className="fs-exit"
+            aria-label="Exit fullscreen"
+            onClick={() => setFullscreen(false)}
+          >
+            ✕
+          </button>
+          <div className={`fs-drawer ${drawerOpen ? "open" : ""}`}>
+            <ColorMenu />
+            <button
+              className="fs-drawer-tab"
+              aria-label="Toggle color palette"
+              onClick={() => setDrawerOpen((o) => !o)}
+            >
+              🎨 {drawerOpen ? "▲" : "▼"}
+            </button>
+          </div>
+        </>
+      )}
       <div
         className="status"
         style={{
@@ -270,6 +304,13 @@ export default function ColoringGrid() {
         </button>
         <button onClick={() => setSelectedDate(todayKey())} disabled={isToday}>
           Today
+        </button>
+        <button
+          className="fs-enter"
+          aria-label="Fullscreen"
+          onClick={() => setFullscreen(true)}
+        >
+          ⛶
         </button>
       </div>
       <div className="date-nav">
