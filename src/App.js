@@ -4,19 +4,12 @@ import GameBoard from "./components/GameBoard";
 import ColorMenu from "./components/ColorMenu";
 import GameRules from "./components/GameRules";
 import "./App.css";
-import { useState } from "react";
 
 export default function App() {
   const { selectMapDifficulty, selectColorDifficulty } = useDifficulty();
 
-  const [collapseTitle, setCollapseTitle] = useState(false);
-
-  const toggleTitle = () => {
-    setCollapseTitle(!collapseTitle);
-  };
-
   const title = (
-    <h1 className={`title ${collapseTitle ? "collapsed" : ""}`}>
+    <h1 className="title">
       <span>&nbsp;F&nbsp;</span>
       <span>&nbsp;I&nbsp;</span>
       <span>&nbsp;L&nbsp;</span>
@@ -33,37 +26,29 @@ export default function App() {
     selectColorDifficulty(parseInt(event.target.value));
   };
 
-  const mapDifficultySelector = (
-    <select id="map-difficulty" onChange={mapDiff}>
-      <option value="easy">Easy</option>
-      <option value="medium">Medium</option>
-      <option value="hard">Hard</option>
-    </select>
-  );
-
-  const colorDifficultySelector = (
-    <select id="color-difficulty" onChange={colorDiff}>
-      <option value="4">4</option>
-      <option value="5">5</option>
-      <option value="6">6</option>
-    </select>
-  );
-
   return (
     <div className="main">
-      <div onClick={toggleTitle} className="title-bar">
-        {title}
-      </div>
+      <div className="title-bar">{title}</div>
       <PaletteProvider>
         <div className="game-bar">
-          <div className={`left ${collapseTitle ? "hide" : ""}`}>
-            {mapDifficultySelector}
-          </div>
-          <ColorMenu />
-          <div className={`right ${collapseTitle ? "hide" : ""}`}>
-            {colorDifficultySelector}
-          </div>
+          <label className="field">
+            <span>Game</span>
+            <select id="map-difficulty" onChange={mapDiff}>
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+          </label>
+          <label className="field">
+            <span>Colors</span>
+            <select id="color-difficulty" onChange={colorDiff}>
+              <option value="4">4</option>
+              <option value="5">5</option>
+              <option value="6">6</option>
+            </select>
+          </label>
         </div>
+        <ColorMenu />
         <GameBoard />
       </PaletteProvider>
       <GameRules />

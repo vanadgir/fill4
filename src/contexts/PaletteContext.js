@@ -11,8 +11,8 @@ import { useDifficulty } from "./DifficultyContext";
 // sentinel selection id for the eraser tool
 export const ERASER = -1;
 
-// colorset data
-const colorSets = [
+// colorset data (exported for the share GIF, which cycles every set)
+export const colorSets = [
   [
     "#FF5733", // vivid orange
     "#41EAD4", // teal
@@ -105,7 +105,7 @@ export function PaletteProvider({ children }) {
 
   return (
     <PaletteContext.Provider
-      value={{ palette, selectedId, selectColor, nextSet, prevSet }}
+      value={{ palette, paletteId, selectedId, selectColor, nextSet, prevSet }}
     >
       {children}
     </PaletteContext.Provider>

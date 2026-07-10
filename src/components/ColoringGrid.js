@@ -7,15 +7,26 @@ import {
   dailySeed,
   isDailyComplete,
   recordDailySolve,
+  shiftDateKey,
   todayKey,
 } from "../game/daily";
+import { loadSavedBoard, removeSavedBoard, saveBoard } from "../game/storage";
 import ArchivePicker from "./ArchivePicker";
+import ShareButton from "./ShareButton";
 import Voronoi from "./Voronoi";
 import VictoryMessage from "./VictoryMessage";
 
+const MAP_ORDER = ["easy", "medium", "hard"];
+const MAP_LETTER = { easy: "E", medium: "M", hard: "H" };
+const MAP_NAME = { easy: "Easy", medium: "Medium", hard: "Hard" };
+
+// how long the remaining-cell counter stays visible after a move before it
+// fades, so it can never sit over a cell the player wants to click
+const COUNTER_VISIBLE_MS = 2500;
+
 export default function ColoringGrid() {
   const { mapDifficulty, numPoints, colorDifficulty } = useDifficulty();
-  const { palette, selectedId } = usePalette();
+  const { palette, paletteId, selectedId } = usePalette();
 
   // "today" is state, refreshed on focus and on a timer, so the app rolls
   // over correctly at midnight instead of trusting the mount-time date
@@ -43,12 +54,23 @@ export default function ColoringGrid() {
   );
 
   // colors[i] is the palette index painted on cell i, or null if blank —
-  // the only mutable game state
-  const [colors, setColors] = useState(() => Array(numPoints).fill(null));
-  const [victoryDismissed, setVictoryDismissed] = useState(false);
+  // the only mutable game state; boards with any progress are restored
+  // from storage, and a restored already-solved board skips the victory
+  // popup (it only appears at the moment of solving)
+  const [colors, setColors] = useState(
+    () =>
+      loadSavedBoard(seed, numPoints, colorDifficulty) ||
+      Array(numPoints).fill(null)
+  );
+  const [victoryDismissed, setVictoryDismissed] = useState(() => {
+    const saved = loadSavedBoard(seed, numPoints, colorDifficulty);
+    return saved !== null && countUnfilled(saved) === 0;
+  });
   const [invalidId, setInvalidId] = useState(null);
   const [, setCompletionsVersion] = useState(0);
+  const [counterVisible, setCounterVisible] = useState(true);
   const invalidTimer = useRef(null);
+  const counterTimer = useRef(null);
 
   // reset during render when the board changes, so no frame ever shows (or
   // records) old colors against new geometry
@@ -56,10 +78,22 @@ export default function ColoringGrid() {
   const [prevBoardKey, setPrevBoardKey] = useState(boardKey);
   if (boardKey !== prevBoardKey) {
     setPrevBoardKey(boardKey);
-    setColors(Array(numPoints).fill(null));
-    setVictoryDismissed(false);
+    const saved = loadSavedBoard(seed, numPoints, colorDifficulty);
+    setColors(saved || Array(numPoints).fill(null));
+    setVictoryDismissed(saved !== null && countUnfilled(saved) === 0);
     setInvalidId(null);
   }
+
+  // persist progress: any board with at least one move is stored, an
+  // all-blank board (including after Clear) is dropped from storage
+  useEffect(() => {
+    if (colors.length !== numPoints) return;
+    if (countUnfilled(colors) === numPoints) {
+      removeSavedBoard(seed);
+    } else {
+      saveBoard(seed, colors);
+    }
+  }, [colors, seed, numPoints]);
 
   // shrinking the palette clears only the cells whose color no longer exists
   useEffect(() => {
@@ -70,6 +104,17 @@ export default function ColoringGrid() {
 
   const numNull = countUnfilled(colors);
   const solved = colors.length === numPoints && numNull === 0;
+
+  // show the counter briefly whenever progress changes, then fade it out
+  useEffect(() => {
+    setCounterVisible(true);
+    clearTimeout(counterTimer.current);
+    counterTimer.current = setTimeout(
+      () => setCounterVisible(false),
+      COUNTER_VISIBLE_MS
+    );
+    return () => clearTimeout(counterTimer.current);
+  }, [numNull, boardKey]);
 
   const flashInvalid = useCallback((cellId) => {
     clearTimeout(invalidTimer.current);
@@ -142,9 +187,7 @@ export default function ColoringGrid() {
       >
         {[
           ...(isToday
-            ? `Daily Puzzle · ${selectedDate}${dailyDone ? " ✓" : ""}${
-                streak > 0 ? ` · 🔥 ${streak}` : ""
-              }`
+            ? `Daily Puzzle · ${selectedDate}${dailyDone ? " ✓" : ""}`
             : `Archive · ${selectedDate}${dailyDone ? " ✓" : ""} · no streak`),
         ].map((char, i) => (
           <span key={i} style={{ animationDelay: `${-i * 0.15}s` }}>
@@ -152,20 +195,56 @@ export default function ColoringGrid() {
           </span>
         ))}
       </div>
+      <div className="streaks">
+        {MAP_ORDER.map((md) => {
+          const s = currentStreak(md, colorDifficulty);
+          return (
+            <div
+              key={md}
+              className={`streak-badge ${s > 0 ? "" : "inactive"}`}
+              title={`${MAP_NAME[md]} · ${colorDifficulty} colors · ${s}-day streak`}
+            >
+              <span className="streak-diff">{MAP_LETTER[md]}</span>
+              <span className="streak-fire">
+                🔥<span className="streak-color">{colorDifficulty}</span>
+              </span>
+              <span className="streak-count">{s}</span>
+            </div>
+          );
+        })}
+      </div>
       {victoryDismissed || !solved ? (
         <>
-          <Voronoi
-            cellCount={numPoints}
-            voronoi={voronoi}
-            colors={colors}
-            palette={palette}
-            invalidId={invalidId}
-            onPaint={paintCell}
-            onErase={eraseCell}
-          />
-          <div className="score">
-            {numNull > 0 ? `${numNull} to go!` : "Great Job!"}
+          <div className="board-wrap">
+            <Voronoi
+              cellCount={numPoints}
+              voronoi={voronoi}
+              colors={colors}
+              palette={palette}
+              invalidId={invalidId}
+              onPaint={paintCell}
+              onErase={eraseCell}
+            />
+            <div
+              className={`counter ${solved ? "done" : ""} ${
+                counterVisible ? "" : "hidden"
+              }`}
+            >
+              {solved ? "✓" : numNull}
+            </div>
           </div>
+          {solved && (
+            <ShareButton
+              dateKey={selectedDate}
+              mapDifficulty={mapDifficulty}
+              colorDifficulty={colorDifficulty}
+              streak={isToday ? streak : 0}
+              voronoi={voronoi}
+              cellCount={numPoints}
+              colors={colors}
+              paletteId={paletteId}
+            />
+          )}
         </>
       ) : (
         <VictoryMessage
@@ -174,6 +253,10 @@ export default function ColoringGrid() {
           mapDifficulty={mapDifficulty}
           colorDifficulty={colorDifficulty}
           streak={isToday ? streak : 0}
+          voronoi={voronoi}
+          cellCount={numPoints}
+          colors={colors}
+          paletteId={paletteId}
         />
       )}
       <div className="button-grid">
@@ -188,7 +271,24 @@ export default function ColoringGrid() {
         <button onClick={() => setSelectedDate(todayKey())} disabled={isToday}>
           Today
         </button>
+      </div>
+      <div className="date-nav">
+        <button
+          className="date-arrow"
+          aria-label="Previous day"
+          onClick={() => setSelectedDate(shiftDateKey(selectedDate, -1))}
+        >
+          &lt;
+        </button>
         <ArchivePicker selectedDate={selectedDate} onPick={pickDate} />
+        <button
+          className="date-arrow"
+          aria-label="Next day"
+          onClick={() => pickDate(shiftDateKey(selectedDate, 1))}
+          disabled={isToday}
+        >
+          &gt;
+        </button>
       </div>
     </div>
   );

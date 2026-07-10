@@ -26,32 +26,31 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: safe center;
+  gap: 6px;
+  min-height: 100dvh;
+  max-width: 960px;
+  margin: 0 auto;
+  /* respect notches, punch-holes, and the home indicator on phones */
+  padding: calc(10px + env(safe-area-inset-top)) calc(12px + env(safe-area-inset-right))
+    calc(10px + env(safe-area-inset-bottom)) calc(12px + env(safe-area-inset-left));
+  box-sizing: border-box;
 }
 
 /* -- title -- */
 
 .title-bar {
-  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .title {
   margin: 0;
   display: flex;
   justify-content: center;
-  border-style: solid;
-  cursor: pointer;
   user-select: none;
-  transition: max-height 0.3s ease-in-out, opacity 0.3s ease-in-out;
-  overflow: hidden;
-  max-height: 100px;
-  opacity: 1;
-}
-
-.title.collapsed {
-  max-height: 8px;
-  opacity: 0.4;
-  padding: 0;
-  background-color: var(--ink);
+  font-size: 30px;
+  letter-spacing: 1px;
 }
 
 .title span:nth-child(1) {
@@ -75,40 +74,31 @@ button {
   background-color: var(--ink);
 }
 
-/* -- top bar: difficulty selectors + palette -- */
+/* -- top bar: difficulty selectors -- */
 
 .game-bar {
   display: flex;
-  width: 100%;
   align-items: center;
-  justify-content: space-evenly;
+  justify-content: center;
+  gap: 24px;
   user-select: none;
-  margin-bottom: 8px;
 }
 
-.left,
-.right {
+.field {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 2px;
+  font-size: 13px;
 }
 
-.left::before {
-  content: "Game";
-}
-
-.right::before {
-  content: "Colors";
-}
-
-.left.hide,
-.right.hide {
-  display: none;
-}
+/* -- palette row (own line, so it never squeezes the selectors) -- */
 
 .color-menu {
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 .palette {
@@ -156,12 +146,12 @@ button {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 6px;
 }
 
 .status {
-  font-size: 22px;
+  font-size: 20px;
   font-weight: bold;
-  margin-bottom: 6px;
   user-select: none;
   white-space: pre;
 }
@@ -195,12 +185,61 @@ button {
   }
 }
 
+/* per-difficulty streak badges: one fire per map difficulty (E/M/H),
+   with the color count overlaid on the flame */
+.streaks {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  user-select: none;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.streak-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.streak-badge.inactive {
+  opacity: 0.3;
+}
+
+.streak-diff {
+  color: #555555;
+}
+
+.streak-fire {
+  position: relative;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.streak-color {
+  position: absolute;
+  top: 52%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 10px;
+  font-weight: bold;
+  color: var(--paper);
+  text-shadow: 0 0 2px var(--ink), 0 0 2px var(--ink);
+}
+
 /* board keeps the logical 1000x700 aspect ratio and scales to fit;
    in portrait the same board renders rotated 90°, so the container
    flips to 700x1000 and fills the vertical space */
 .voronoi,
 .victory {
-  width: min(92vw, 900px, calc(62vh * (1000 / 700)));
+  width: min(
+    92vw,
+    900px,
+    calc(
+      (100dvh - 390px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) *
+        (1000 / 700)
+    )
+  );
   aspect-ratio: 1000 / 700;
   border: 3px solid var(--ink);
   box-sizing: border-box;
@@ -209,7 +248,13 @@ button {
 @media (orientation: portrait) {
   .voronoi,
   .victory {
-    width: min(94vw, calc((100vh - 290px) * (700 / 1000)));
+    width: min(
+      94vw,
+      calc(
+        (100dvh - 360px - env(safe-area-inset-top) - env(safe-area-inset-bottom)) *
+          (700 / 1000)
+      )
+    );
     aspect-ratio: 700 / 1000;
   }
 }
@@ -239,14 +284,39 @@ button {
   animation: invalid-flash 0.45s ease;
 }
 
-.score {
-  border-style: groove;
+/* board + its small overlaid remaining-cells counter */
+.board-wrap {
+  position: relative;
+  display: flex;
+}
+
+.counter {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  min-width: 20px;
+  height: 26px;
+  padding: 0 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-weight: bold;
-  font-size: 32px;
-  margin: 8px 0 0;
-  padding: 0 24px;
-  text-align: center;
+  font-size: 15px;
+  color: var(--ink);
+  background-color: rgba(255, 255, 255, 0.85);
+  border: 2px solid var(--ink);
+  border-radius: 4px;
   user-select: none;
+  pointer-events: none;
+  transition: opacity 0.4s ease;
+}
+
+.counter.done {
+  color: #2ecc71;
+}
+
+.counter.hidden {
+  opacity: 0;
 }
 
 /* -- victory -- */
@@ -278,6 +348,9 @@ button {
   max-width: 70%;
   max-height: 70%;
   cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
 }
 
 .share {
@@ -290,8 +363,21 @@ button {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
-  margin-top: 8px;
+  gap: 12px;
+}
+
+/* -- date navigation -- */
+
+.date-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.date-arrow {
+  min-width: 40px;
+  font-weight: bold;
 }
 
 /* -- archive calendar -- */
@@ -306,9 +392,12 @@ button {
 
 .calendar {
   position: absolute;
-  top: calc(100% + 4px);
+  /* open upward: the picker sits low on the page, so downward runs off the
+     bottom on mobile while there is plenty of room above (the board) */
+  bottom: calc(100% + 4px);
   left: 50%;
   transform: translateX(-50%);
+  max-width: calc(100vw - 12px);
   background-color: var(--paper);
   border: 2px solid var(--ink);
   padding: 8px;
@@ -358,6 +447,12 @@ button {
   cursor: default;
 }
 
+/* days solved on at least one difficulty — hover shows which (title attr) */
+.cal-day.completed {
+  border: 2px solid #2ecc71;
+  cursor: pointer;
+}
+
 .cal-day.selected {
   border: 2px solid var(--ink);
   font-weight: bold;
@@ -368,13 +463,14 @@ button {
   flex-direction: column;
   align-items: center;
   max-width: 600px;
-  padding: 8px 16px;
-  font-size: 14px;
+  padding: 0 16px;
+  font-size: 13px;
+  line-height: 1.4;
   text-align: center;
   color: #444444;
   user-select: none;
 }
 
 .rules p {
-  margin: 2px 0;
+  margin: 0;
 }

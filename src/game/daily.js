@@ -21,6 +21,12 @@ function yesterdayKey(date = new Date()) {
   return todayKey(d);
 }
 
+// shift a YYYY-MM-DD key by whole days, handling month/year boundaries
+export function shiftDateKey(dateKey, deltaDays) {
+  const [y, m, d] = dateKey.split("-").map(Number);
+  return todayKey(new Date(y, m - 1, d + deltaDays));
+}
+
 export function dailySeed(dateKey, mapDifficulty) {
   return `fill4:${dateKey}:${mapDifficulty}`;
 }
@@ -35,7 +41,8 @@ function settingsKey(mapDifficulty, colorDifficulty) {
 
 function loadJson(key) {
   try {
-    return JSON.parse(localStorage.getItem(key)) || {};
+    const v = JSON.parse(localStorage.getItem(key));
+    return v && typeof v === "object" && !Array.isArray(v) ? v : {};
   } catch {
     return {};
   }
@@ -55,6 +62,29 @@ export function isDailyComplete(dateKey, mapDifficulty, colorDifficulty) {
       completionKey(dateKey, mapDifficulty, colorDifficulty)
     ]
   );
+}
+
+// the whole completions map, so a caller (e.g. the calendar) can read many
+// dates without re-parsing localStorage per day
+export function loadCompletions() {
+  return loadJson(COMPLETIONS_KEY);
+}
+
+// every (mapDifficulty, colorDifficulty) combo solved on a date, from an
+// already-loaded completions map
+export function solvesOn(completions, dateKey) {
+  const result = [];
+  for (const key of Object.keys(completions)) {
+    if (!completions[key]) continue;
+    const parts = key.split(":");
+    if (parts[0] === dateKey && parts.length === 3) {
+      result.push({
+        mapDifficulty: parts[1],
+        colorDifficulty: Number(parts[2]),
+      });
+    }
+  }
+  return result;
 }
 
 // Records a solve for any date. The streak only advances when the solved

@@ -1,5 +1,5 @@
-import { useState } from "react";
 import winstar from "../images/winstar.jpg";
+import ShareButton from "./ShareButton";
 
 export default function VictoryMessage({
   onDismiss,
@@ -7,31 +7,27 @@ export default function VictoryMessage({
   mapDifficulty,
   colorDifficulty,
   streak,
+  voronoi,
+  cellCount,
+  colors,
+  paletteId,
 }) {
-  const [copied, setCopied] = useState(false);
-
-  const shareText =
-    `Fill4 Daily ${dateKey} — solved on ${mapDifficulty} with ${colorDifficulty} colors!` +
-    (streak > 1 ? ` 🔥 ${streak} day streak` : "");
-
-  const copyResult = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard
-        .writeText(shareText)
-        .then(() => setCopied(true))
-        .catch(() => {});
-    }
-  };
-
   return (
     <div className="victory">
       <div className="dismiss" onClick={onDismiss}>
         X
       </div>
       <img src={winstar} alt="victory" className="winstar" />
-      <button className="share" onClick={copyResult}>
-        {copied ? "Copied!" : "Share Result"}
-      </button>
+      <ShareButton
+        dateKey={dateKey}
+        mapDifficulty={mapDifficulty}
+        colorDifficulty={colorDifficulty}
+        streak={streak}
+        voronoi={voronoi}
+        cellCount={cellCount}
+        colors={colors}
+        paletteId={paletteId}
+      />
     </div>
   );
 }

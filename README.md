@@ -8,7 +8,7 @@ Inspired by the [four color theorem](https://en.wikipedia.org/wiki/Four_color_th
 
 ## How to Play
 
-Pick a color from the palette, then tap a cell to fill it. A cell can never share a color with a neighbor — illegal moves flash red. Use the eraser block (or right-click a cell) to remove a color. Solve the Daily Puzzle each day to build a streak, tracked per difficulty combination. The date picker lets you play any past day's puzzle from the archive, but only solving today's puzzle counts toward your streak.
+Pick a color from the palette, then tap a cell to fill it. A cell can never share a color with a neighbor — illegal moves flash red. Use the eraser block (or right-click a cell) to remove a color. Solve the Daily Puzzle each day to build a streak, tracked per difficulty combination. The date picker lets you play any past day's puzzle from the archive, but only solving today's puzzle counts toward your streak. Progress on any board you've started (including solved boards) is saved on your device and restored when you return to that day — hit Clear to wipe it.
 
 ## Game Options
 
